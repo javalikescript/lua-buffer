@@ -1,0 +1,13 @@
+The Lua buffer module provides functions to deal with userdata as plain byte buffer.
+
+The main use case is to allow native module to return interoperatble buffer
+that could be manipulate at the script level then gave back to another native module.
+
+Features:
+- userdata buffer creation from size, string or userdata
+- string like functions: len, byte, sub, tostring
+- buffer manipulation functions: memcpy, memset, byteset
+
+See the test.lua file to see the full usages.
+
+Lua buffer is covered by the MIT license.
