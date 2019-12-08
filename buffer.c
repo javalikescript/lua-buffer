@@ -3,6 +3,30 @@
 #include <string.h>
 
 /*
+* Lua 5.1 and 5.2 compatibility
+*/
+
+#if LUA_VERSION_NUM < 502
+// From Lua 5.3 lauxlib.c
+LUALIB_API void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
+  luaL_checkstack(L, nup, "too many upvalues");
+  for (; l->name != NULL; l++) {  /* fill the table with given functions */
+    int i;
+    for (i = 0; i < nup; i++)  /* copy upvalues to the top */
+      lua_pushvalue(L, -nup);
+    lua_pushcclosure(L, l->func, nup);  /* closure with those upvalues */
+    lua_setfield(L, -(nup + 2), l->name);
+  }
+  lua_pop(L, nup);  /* remove upvalues */
+}
+#define lua_rawlen lua_objlen
+#endif
+
+#if LUA_VERSION_NUM < 503
+#define lua_isinteger lua_isnumber
+#endif
+
+/*
 Provides functions to deal with userdata as plain byte buffer.
 */
 
@@ -26,10 +50,6 @@ static int adjustOffset(lua_Integer offset, size_t length) {
 	return offset;
 }
 
-
-#if LUA_VERSION_NUM < 503
-#define lua_isinteger lua_isnumber
-#endif
 
 static int buffer_new(lua_State *l) {
 	size_t nbytes = 0;
