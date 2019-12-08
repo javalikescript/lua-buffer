@@ -27,6 +27,10 @@ static int adjustOffset(lua_Integer offset, size_t length) {
 }
 
 
+#if LUA_VERSION_NUM < 503
+#define lua_isinteger lua_isnumber
+#endif
+
 static int buffer_new(lua_State *l) {
 	size_t nbytes = 0;
 	unsigned char *buffer = NULL;
@@ -50,6 +54,12 @@ static int buffer_new(lua_State *l) {
 static int buffer_len(lua_State *l) {
 	size_t blen = lua_rawlen(l, 1);
 	lua_pushinteger(l, blen);
+	return 1;
+}
+
+static int buffer_lighten(lua_State *l) {
+	void *p = lua_touserdata(l, 1);
+	lua_pushlightuserdata(l, p);
 	return 1;
 }
 
@@ -161,6 +171,7 @@ LUALIB_API int luaopen_buffer(lua_State *l) {
 	luaL_Reg reg[] = {
 		{ "new", buffer_new },
 		{ "len", buffer_len },
+		{ "lighten", buffer_lighten },
 		{ "tostring", buffer_tostring },
 		{ "byte", buffer_byte },
 		{ "byteset", buffer_byteset },
