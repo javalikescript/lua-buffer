@@ -29,7 +29,6 @@ LUALIB_API void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
 /*
 Provides functions to deal with userdata as plain byte buffer.
 */
-
 static const char *toBuffer(lua_State *l, int i, size_t *len) {
 	if (lua_isstring(l, i)) {
 		return lua_tolstring(l, i, len);
@@ -50,7 +49,9 @@ static int adjustOffset(lua_Integer offset, size_t length) {
 	return offset;
 }
 
-
+/*
+Returns a new user data from the specified size, string or user data.
+*/
 static int buffer_new(lua_State *l) {
 	size_t nbytes = 0;
 	unsigned char *buffer = NULL;
@@ -71,18 +72,27 @@ static int buffer_new(lua_State *l) {
 	return 1;
 }
 
+/*
+Returns the length of the specified user data or 0.
+*/
 static int buffer_len(lua_State *l) {
 	size_t blen = lua_rawlen(l, 1);
 	lua_pushinteger(l, blen);
 	return 1;
 }
 
+/*
+Returns the specified user data as a light user data.
+*/
 static int buffer_lighten(lua_State *l) {
 	void *p = lua_touserdata(l, 1);
 	lua_pushlightuserdata(l, p);
 	return 1;
 }
 
+/*
+Returns the specified user data as a string.
+*/
 static int buffer_tostring(lua_State *l) {
 	if (lua_isuserdata(l, 1) && !lua_islightuserdata(l, 1)) {
 		size_t blen = lua_rawlen(l, 1);
@@ -91,11 +101,14 @@ static int buffer_tostring(lua_State *l) {
 	} else {
 		lua_pushnil(l);
 	}
-    return 1;
+  return 1;
 }
 
+/*
+Returns the bytes.
+*/
 static int buffer_byte(lua_State *l) {
-	size_t blen = lua_rawlen(l, 1);
+	size_t blen = lua_rawlen(l, 1); // 0 when light
 	unsigned char *buffer = (unsigned char *)lua_touserdata(l, 1);
 	lua_Integer i = adjustOffset(luaL_optinteger(l, 2, 1), blen);
 	lua_Integer j = adjustOffset(luaL_optinteger(l, 3, i), blen);
@@ -120,6 +133,9 @@ static int buffer_byte(lua_State *l) {
 	return n;
 }
 
+/*
+Sets the bytes in the buffer.
+*/
 static int buffer_byteset(lua_State *l) {
 	int n = lua_gettop(l);
 	size_t blen = lua_rawlen(l, 1);
@@ -145,46 +161,63 @@ static int buffer_memset(lua_State *l) {
 	return 0;
 }
 
+/*
+Copies the string to the buffer.
+*/
 static int buffer_memcpy(lua_State *l) {
-	size_t blen = lua_rawlen(l, 1);
-	unsigned char *buffer = (unsigned char *)lua_touserdata(l, 1);
-	lua_Integer offset = adjustOffset(luaL_optinteger(l, 2, 1), blen);
-	size_t slen = 0;
-	const char *src = toBuffer(l, 3, &slen);
-	lua_Integer i = adjustOffset(luaL_optinteger(l, 4, 1), slen);
-	lua_Integer j = adjustOffset(luaL_optinteger(l, 5, slen), slen);
+	lua_Integer offset, i, j, ii, n, m;
+	size_t slen, blen;
+	unsigned char *buffer;
+	int islight;
+	const char *src;
+	buffer = (unsigned char *)lua_touserdata(l, 1);
+	islight = lua_islightuserdata(l, 1);
+	blen = lua_rawlen(l, 1);
+	offset = adjustOffset(luaL_optinteger(l, 2, 1), blen);
+	slen = 0;
+	src = toBuffer(l, 3, &slen);
+	i = adjustOffset(luaL_optinteger(l, 4, 1), slen);
+	j = adjustOffset(luaL_optinteger(l, 5, slen), slen);
+	m = blen;
 	if (i < 1) {
 		i = 1;
 	}
-	if (j > (lua_Integer)blen) {
-		j = blen;
+	if ((j > m) && !islight) {
+		j = m;
 	}
-	int ii = i - 1;
-	int n = j - ii;
-	if ((src != NULL) && (offset >= 1) && (offset <= blen) && (i <= j) && (offset + n <= blen)) {
-		memcpy(buffer + offset - 1, src + ii, n);
+	ii = i - 1;
+	n = j - ii;
+	if ((src != NULL) && (offset >= 1) && (i <= j)) {
+		if (((offset <= m) && (offset + n <= m)) || islight) {
+			memcpy(buffer + offset - 1, src + ii, n);
+		}
 	}
 	return 0;
 }
 
+/*
+Returns the specified user data as a string.
+*/
 static int buffer_sub(lua_State *l) {
 	size_t blen = lua_rawlen(l, 1);
 	char *buffer = (char *)lua_touserdata(l, 1);
 	lua_Integer i = adjustOffset(luaL_optinteger(l, 2, 1), blen);
 	lua_Integer j = adjustOffset(luaL_optinteger(l, 3, blen), blen);
+	int islight = lua_islightuserdata(l, 1);
+	lua_Integer ii;
 	if (i < 1) {
 		i = 1;
 	}
-	if (j > (lua_Integer)blen) {
+	if ((j > (lua_Integer)blen) && !islight) {
 		j = blen;
 	}
 	if (i > j) {
 		lua_pushstring(l, "");
 		return 1;
 	}
-	int ii = i - 1;
-	lua_pushlstring(l, buffer + ii, (size_t)(j - ii));
-    return 1;
+	ii = i - 1;
+	lua_pushlstring(l, buffer + ii, j - ii);
+  return 1;
 }
 
 LUALIB_API int luaopen_buffer(lua_State *l) {
@@ -204,7 +237,7 @@ LUALIB_API int luaopen_buffer(lua_State *l) {
 	luaL_setfuncs(l, reg, 0);
 	lua_pushliteral(l, "Lua buffer");
 	lua_setfield(l, -2, "_NAME");
-	lua_pushliteral(l, "0.1");
+	lua_pushliteral(l, "0.2");
 	lua_setfield(l, -2, "_VERSION");
 	return 1;
 }
