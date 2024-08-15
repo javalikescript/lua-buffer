@@ -3,10 +3,13 @@ The Lua buffer module provides functions to deal with userdata as plain byte buf
 The main use case is to allow native module to return interoperatble buffer
 that could be manipulate at the script level then gave back to another native module.
 
+Note: The use of light user data buffer is unsafe as the size is unknown and the pointer may have been freed.
+
 Features:
 - userdata buffer creation from size, string or userdata
-- string like functions: len, byte, sub, tostring
+- string like functions: len, byte, sub
 - buffer manipulation functions: memcpy, memset, byteset
+- light user data manipulation functions: lighten, topointer, frompointer
 
 See the test.lua file to see the full usages.
 
