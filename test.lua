@@ -26,6 +26,23 @@ function Test_new_userdata()
   lu.assertEquals(bufferLib.sub(b), s)
 end
 
+function Test_malloc_size()
+  local b = bufferLib.malloc(256)
+  lu.assertEquals(bufferLib.len(b), 0)
+  bufferLib.memcpy(b, 'Hi')
+  lu.assertEquals(bufferLib.sub(b, 1, 2), 'Hi')
+  bufferLib.free(b)
+end
+
+function Test_realloc()
+  local b = bufferLib.malloc(5)
+  bufferLib.memcpy(b, 'Hi')
+  local rb = bufferLib.realloc(b, 1024)
+  lu.assertEquals(bufferLib.sub(rb, 1, 2), 'Hi')
+  bufferLib.free(rb)
+  lu.assertNotEquals(b, rb) -- may fail
+end
+
 function Test_byte()
   local s = 'Hello world!'
   local b = bufferLib.new(s)
@@ -134,15 +151,53 @@ function Test_sub_light()
   checkSubLight(l)
 end
 
-function Test_sub_pointer()
+function Test_reference_light()
   local b = bufferLib.new('Hi')
   local l = bufferLib.lighten(b)
-  local p = bufferLib.topointer(b)
-  local lp = bufferLib.frompointer(p)
+  local p = bufferLib.toreference(b)
+  local lp = bufferLib.fromreference(p)
   lu.assertEquals(type(l), 'userdata')
   lu.assertEquals(type(p), 'string')
   lu.assertEquals(type(lp), 'userdata')
   lu.assertEquals(l, lp)
+end
+
+local function toFrom(b, ...)
+  return select(2, bufferLib.fromreference(bufferLib.toreference(b, ...)))
+end
+
+function Test_reference()
+  local b = bufferLib.new('Hi')
+  lu.assertEquals(toFrom(b), 2)
+  lu.assertEquals({toFrom(b, 1, 'name')}, {1, 'name'})
+  debug.setmetatable(b, {__name = 'mt name'})
+  lu.assertEquals({toFrom(b)}, {2, 'mt name'})
+  debug.setmetatable(b, {name = 'not name'})
+  lu.assertEquals({toFrom(b)}, {2, ''})
+
+  lu.assertEquals({pcall(bufferLib.toreference, b, 3)}, {false, 'size out of range'})
+  lu.assertEquals({pcall(bufferLib.toreference, b, nil, string.rep('.', 128))}, {false, 'name too long'})
+
+  local p = bufferLib.toreference(bufferLib.new(11111), nil, 'a name')
+  lu.assertEquals({select(2, bufferLib.fromreference(p))}, {11111, 'a name'})
+
+  lu.assertEquals({pcall(bufferLib.fromreference, p, 1)}, {false, 'size does not match'})
+  lu.assertEquals({pcall(bufferLib.fromreference, p, nil, '-')}, {false, 'name does not match'})
+  lu.assertEquals({pcall(bufferLib.fromreference, '123')}, {false, 'invalid reference length'})
+  lu.assertEquals({pcall(bufferLib.fromreference, string.rep('\1', 128))}, {false, 'bad CRC'})
+  lu.assertEquals({pcall(bufferLib.fromreference, string.rep('\0', 128))}, {false, 'invalid process id'})
+end
+
+function Test_mutex()
+  local mutex = bufferLib.newmutex()
+  lu.assertEquals(bufferLib.len(mutex), bufferLib.MUTEX_SIZE)
+  bufferLib.initmutex(mutex)
+  local tl = bufferLib.trylock(mutex)
+  bufferLib.unlock(mutex)
+  bufferLib.lock(mutex)
+  bufferLib.unlock(mutex)
+  bufferLib.destroymutex(mutex)
+  lu.assertTrue(tl)
 end
 
 os.exit(lu.LuaUnit.run())

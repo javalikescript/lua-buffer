@@ -1,15 +1,26 @@
 The Lua buffer module provides functions to deal with userdata as plain byte buffer.
+It optionally also provides functions to prevent concurent execution in different threads.
 
-The main use case is to allow native module to return interoperatble buffer
-that could be manipulate at the script level then gave back to another native module.
+The main use case is to allow native module to return an interoperable buffer
+that could be manipulated at the script level then gave back to another native module.
 
-Note: The use of light user data buffer is unsafe as the size is unknown and the pointer may have been freed.
+Another use case consists in sharing a buffer between two threads.
+The optional mutex allows concurent usage of a shared memory or shared resource.
 
 Features:
 - userdata buffer creation from size, string or userdata
 - string like functions: len, byte, sub
 - buffer manipulation functions: memcpy, memset, byteset
-- light user data manipulation functions: lighten, topointer, frompointer
+- light userdata manipulation functions: lighten, toreference, fromreference
+- direct memory manipulation functions: malloc, free, realloc
+- mutual exclusion functions: lock, unlock and trylock
+
+Note:
+- The use of light userdata buffer is unsafe as the size is unknown and the pointer may have been freed.
+- The use of malloc, free, realloc is unsafe as there is no check against the pointer validity.
+- The buffer manipulation functions are unsafe as there is no control against the light userdata passed as argument.
+- A mutex must be initialized prior usage and destroy after.
+- Soft mutex is restricted to 2 threads.
 
 See the test.lua file to see the full usages.
 
