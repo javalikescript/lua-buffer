@@ -1,11 +1,11 @@
 The Lua buffer module provides functions to deal with userdata as plain byte buffer.
-It optionally also provides functions to prevent concurent execution in different threads.
+It optionally also provides functions to prevent concurrent execution in different threads.
 
 The main use case is to allow native module to return an interoperable buffer
 that could be manipulated at the script level then gave back to another native module.
 
 Another use case consists in sharing a buffer between two threads.
-The optional mutex allows concurent usage of a shared memory or shared resource.
+The optional mutex allows the concurrent usage of a shared memory or shared resource.
 
 Features:
 - userdata buffer creation from size, string or userdata

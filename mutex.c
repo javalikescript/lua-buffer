@@ -22,16 +22,17 @@ static void mutex_soft_init(mutex_t *pm, lua_State *l) {
 // From Lamport's bakery algorithm
 static int mutex_soft_lock(mutex_t *pm, int id, int try) {
   int max = 0;
-  int cur;
+  int cur, tic;
   pm->choosing[id] = 1;
   for(int i = 0; i < MUTEX_MAX_ID; i++) {
     cur = pm->ticket[i];
     if (cur > max)
       max = cur;
   }
-  pm->ticket[id] = 1 + max;
+  tic = 1 + max;
+  pm->ticket[id] = tic;
   pm->choosing[id] = 0;
-  //printf("mutex_soft_init(%d, %d) max: %d\n", id, try, max);
+  printf("mutex_soft_init(%d, %d) max: %d\n", id, try, max);
   if (try && max != 0) {
     pm->ticket[id] = 0;
     return 0;
@@ -40,8 +41,14 @@ static int mutex_soft_lock(mutex_t *pm, int id, int try) {
     if (i != id) {
       while (pm->choosing[i])
         sleep(0);
-      while (pm->ticket[i] != 0 && (pm->ticket[i] < pm->ticket[id] || (pm->ticket[i] == pm->ticket[id] && i < id)))
-        sleep(0);
+      for (;;) {
+        cur = pm->ticket[i];
+        if (cur != 0 && (cur < tic || (cur == tic && i < id))) {
+          sleep(0);
+        } else {
+          break;
+        }
+      }
     }
   }
   return 1;
