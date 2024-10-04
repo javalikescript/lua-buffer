@@ -92,6 +92,8 @@ local function checkMemCopy(b, c)
   lu.assertEquals(bufferLib.sub(b), 'Hello earth!')
   bufferLib.memcpy(b, 'Hi   ')
   lu.assertEquals(bufferLib.sub(b), 'Hi    earth!')
+  bufferLib.memcpy(b, '-----------------')
+  lu.assertEquals(bufferLib.sub(b), '------------')
 end
 
 function Test_memcpy()

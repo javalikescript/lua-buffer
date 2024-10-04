@@ -422,7 +422,11 @@ static int buffer_memcpy(lua_State *l) {
   size_t i = posrelatI(luaL_optinteger(l, 4, 1), slen);
   size_t j = getunsafeendpos(l, 5, -1, slen);
   if (src != NULL && slen > 0 && k > 0 && j > 0 && i <= j) {
-    memcpy(buffer + k - 1, src + i - 1, j - i + 1);
+    size_t clen = j - i + 1;
+    if (blen > 0 && k - 1 + clen > blen) {
+      clen = blen - k + 1;
+    }
+    memcpy(buffer + k - 1, src + i - 1, clen);
   }
   return 0;
 }
