@@ -161,7 +161,11 @@ static const char *toBuffer(lua_State *l, int i, size_t *len) {
 typedef void * (*buffer_Alloc) (lua_State *l, size_t s);
 
 static void *buffer_alloc_ud(lua_State *l, size_t s) {
-  return lua_newuserdatauv(l, s, 1);
+#if LUA_VERSION_NUM < 504
+  return lua_newuserdata(l, s);
+#else
+  return lua_newuserdatauv(l, s, 0);
+#endif
 }
 
 static void *buffer_alloc_malloc(lua_State *l, size_t s) {
