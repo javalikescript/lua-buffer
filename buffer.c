@@ -27,6 +27,18 @@ LUALIB_API void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
 #define lua_isinteger lua_isnumber
 #endif
 
+#if LUA_VERSION_NUM < 504
+#define lua_newuserdatauv(_LS, _SZ, _NU) lua_newuserdata(_LS, _SZ)
+#endif
+
+#if LUA_VERSION_NUM < 502
+#define MAX_USER_VALUES 0
+#elif LUA_VERSION_NUM < 504
+#define MAX_USER_VALUES 1
+#else
+#define MAX_USER_VALUES INT_MAX
+#endif
+
 // from lstrlib.c
 // clip result to [1, inf)
 static size_t posrelatI (lua_Integer pos, size_t len) {
@@ -158,23 +170,10 @@ static const char *toBuffer(lua_State *l, int i, size_t *len) {
   return NULL;
 }
 
-typedef void * (*buffer_Alloc) (lua_State *l, size_t s);
-
-static void *buffer_alloc_ud(lua_State *l, size_t s) {
-#if LUA_VERSION_NUM < 504
-  return lua_newuserdata(l, s);
-#else
-  return lua_newuserdatauv(l, s, 0);
-#endif
-}
-
-static void *buffer_alloc_malloc(lua_State *l, size_t s) {
-  void *p = malloc(s);
-  lua_pushlightuserdata(l, p);
-  return p;
-}
-
-static int buffer_create(lua_State *l, buffer_Alloc alloc) {
+/*
+Returns a new buffer from the specified size, string or user data.
+*/
+static int buffer_create(lua_State *l, int nuvalue) {
   size_t nbytes = 0;
   unsigned char *buffer = NULL;
   const char *src = NULL;
@@ -184,7 +183,12 @@ static int buffer_create(lua_State *l, buffer_Alloc alloc) {
     src = toBuffer(l, 1, &nbytes);
   }
   if (nbytes > 0) {
-    buffer = (unsigned char *)alloc(l, nbytes);
+    if (nuvalue < 0) {
+      buffer = (unsigned char *)malloc(nbytes);
+      lua_pushlightuserdata(l, buffer);
+    } else {
+      buffer = (unsigned char *)lua_newuserdatauv(l, nbytes, nuvalue);
+    }
     if (src != NULL) {
       memcpy(buffer, src, nbytes);
     }
@@ -194,18 +198,19 @@ static int buffer_create(lua_State *l, buffer_Alloc alloc) {
   return 1;
 }
 
-/*
-Returns a new user data from the specified size, string or user data.
-*/
 static int buffer_new(lua_State *l) {
-  return buffer_create(l, buffer_alloc_ud);
+  int nuvalue = luaL_optinteger(l, 2, 0);
+  if (nuvalue < 0 || nuvalue > MAX_USER_VALUES) {
+    luaL_error(l, "user values out of range");
+  }
+  return buffer_create(l, nuvalue);
 }
 
 /*
 Returns a new light user data from the specified size, string or user data.
 */
 static int buffer_malloc(lua_State *l) {
-  return buffer_create(l, buffer_alloc_malloc);
+  return buffer_create(l, -1);
 }
 
 /*
